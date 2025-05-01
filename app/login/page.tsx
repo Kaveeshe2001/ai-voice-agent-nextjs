@@ -1,8 +1,19 @@
+"use client"
+
 import { Button } from '@/components/ui/button'
+import { getServerSession } from 'next-auth'
+import { signIn } from 'next-auth/react'
+import { authOptions } from '../api/auth/[...nextauth]/route';
 import Image from 'next/image'
 import React from 'react'
+import { redirect } from 'next/navigation';
 
-const Login = () => {
+const Login = async () => {
+
+  const session = await getServerSession(authOptions)
+
+  if(session) redirect("/")
+
   return (
     <div className='flex flex-col justify-center items-center h-screen'>
       <div className='flex flex-col items-center gap-5 border rounded-2xl p-8 shadow-md'>
@@ -27,7 +38,9 @@ const Login = () => {
               Welcome to Tescobit Voice Agent
             </h2>
             <p className='text-gray-500'>Sign In With Google Authentication</p>
-            <Button className='mt-7 w-full'>Login with Google</Button>
+            <Button className='mt-7 w-full' onClick={() => signIn("google")}>
+                  Login with Google
+            </Button>
           </div>
         </div>
       </div>
