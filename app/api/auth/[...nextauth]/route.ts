@@ -1,6 +1,8 @@
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import type { NextAuthOptions } from "next-auth";
+import { connectDB } from "@/lib/db";
+import User from "@/models/user";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -17,23 +19,30 @@ export const authOptions: NextAuthOptions = {
       if (account?.provider === "google") {
         const { name, email, image } = user;
         try {
-          const res = await fetch("http://localhost:3000/api/user", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              name,
-              email,
-              image,
-            }),
-          });
+          await connectDB();
 
-          if (res.ok) {
-            return true;
-          } else {
-            return false;
+          const userExists = await User.findOne({ email });
+
+          if (!userExists) {
+            const res = await fetch("http://localhost:3000/api/user", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  name,
+                  email,
+                  image,
+                }),
+              });
+    
+              if (res.ok) {
+                return true;
+              } else {
+                return false;
+              }
           }
+
         } catch (error) {
           console.error("Error saving user:", error);
           return false;
