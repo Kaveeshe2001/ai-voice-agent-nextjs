@@ -1,18 +1,16 @@
 "use client"
 
 import { Button } from '@/components/ui/button'
-import { getServerSession } from 'next-auth'
-import { signIn } from 'next-auth/react'
-import { authOptions } from '../api/auth/[...nextauth]/route';
+import { signIn, useSession } from 'next-auth/react'
 import Image from 'next/image'
 import React from 'react'
 import { redirect } from 'next/navigation';
 
-const Login = async () => {
+const Login = () => {
 
-  const session = await getServerSession(authOptions)
+  const {data: session} = useSession();
 
-  if(session) redirect("/")
+  if(session) redirect("/");
 
   return (
     <div className='flex flex-col justify-center items-center h-screen'>
