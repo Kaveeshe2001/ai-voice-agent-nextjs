@@ -10,7 +10,7 @@ const DashboardProvider = ({ children }: ProviderProps) => {
   return (
     <SidebarProvider>
       <AppSidebar />
-      <div>
+      <div className='w-full'>
         <SidebarTrigger />
         {children}
       </div>
