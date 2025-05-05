@@ -16,9 +16,10 @@ import { ArrowRight } from 'lucide-react';
 
 type FormContainerProps = {
   onHandleInputChange: (field: string, value: string) => void;
+  GoToNext: () => void;
 };
 
-const FormContainer: React.FC<FormContainerProps> = ({ onHandleInputChange }) => {
+const FormContainer: React.FC<FormContainerProps> = ({ onHandleInputChange, GoToNext }) => {
   const [interviewType, setInterviewType] = useState<string[]>([]);
 
   useEffect(() => {
@@ -95,7 +96,7 @@ const FormContainer: React.FC<FormContainerProps> = ({ onHandleInputChange }) =>
       </div>
 
       <div className="mt-7 flex justify-end">
-        <Button>
+        <Button className='cursor-pointer' onClick={GoToNext}>
           Generate Question <ArrowRight />
         </Button>
       </div>
