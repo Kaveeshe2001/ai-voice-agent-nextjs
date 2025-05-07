@@ -5,6 +5,7 @@ import axios from 'axios';
 import { toast } from 'sonner';
 import { Loader2Icon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useSession } from 'next-auth/react';
 
 type FormDataType = {
   jobPosition?: string;
@@ -21,6 +22,7 @@ type QuestionListProps = {
 const QuestionList: React.FC<QuestionListProps> = ({ formData }) => {
   const [loading, setLoading] = useState(true);
   const [questions, setQuestions] = useState<string[]>([]);
+  const { data: session } = useSession();
 
   useEffect(() => {
     if (
@@ -44,9 +46,11 @@ const QuestionList: React.FC<QuestionListProps> = ({ formData }) => {
 
       console.log("Generated Questions Response", result.data);
 
-    const Content = result.data.content;
+    const Content = result.data?.content;
     if (!Content) {
-      throw new Error("AI response missing content field");
+      console.error("AI response missing 'content' field. Full response:", result.data);
+      toast.error("AI did not return valid content. Try again.");
+      return;
     }
 
     const FINAL_CONTENT = Content
@@ -56,7 +60,14 @@ const QuestionList: React.FC<QuestionListProps> = ({ formData }) => {
 
     console.log("Final cleaned JSON string:", FINAL_CONTENT);
 
-    const parsed = JSON.parse(FINAL_CONTENT);
+    let parsed;
+    try {
+      parsed = JSON.parse(FINAL_CONTENT);
+    } catch (jsonError) {
+      console.error("JSON parsing failed:", jsonError);
+      toast.error("Failed to parse AI response. Try again.");
+      return;
+    }
 
     // Safely check if questions exists and is an array
     if (!parsed.questions || !Array.isArray(parsed.questions)) {
@@ -76,7 +87,50 @@ const QuestionList: React.FC<QuestionListProps> = ({ formData }) => {
     }
   };
 
-  const onFinish = () => {}
+  const onFinish = async () => {
+    if (!formData.jobPosition || !formData.jobDescription || !formData.duration || !formData.type) {
+      toast.error("Missing job form data.");
+      return;
+    }
+
+    if (questions.length === 0) {
+      toast.error("No questions generated to save.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      // ✅ prepare final data
+      const finalData = {
+        jobPosition: formData.jobPosition,
+        jobDescription: formData.jobDescription,
+        duration: formData.duration,
+        type: formData.type,
+        questionsList: questions,  
+        userEmail: session?.user?.email,  
+      };
+
+      const response = await fetch("http://localhost:3000/api/interview", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(finalData),
+      });
+
+      if (response.status === 201) {
+        toast.success("Interview saved successfully!");
+      } else {
+        toast.error("Error occurred while saving interview.");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Server error while saving interview.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div>
@@ -104,7 +158,7 @@ const QuestionList: React.FC<QuestionListProps> = ({ formData }) => {
         </div>
       )}
       <div className='mt-10 flex justify-end'>
-        <Button onClick={() => onFinish()}>Finish</Button>
+        <Button className='cursor-pointer' onClick={() => onFinish()}>Finish</Button>
       </div>
     </div>
   );

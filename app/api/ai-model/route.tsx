@@ -29,12 +29,12 @@ export async function POST(req: Request) {
     });
 
     const completion = await openai.chat.completions.create({
-      model: "google/gemini-2.0-flash-exp:free",
+      model: "deepseek/deepseek-chat-v3-0324:free",
       messages: [{ role: "user", content: FINAL_PROMPT }]
     });
 
     if (!completion.choices || completion.choices.length === 0) {
-        console.error("❌ No choices returned from AI completion");
+        console.error("No choices returned from AI completion");
         return NextResponse.json({ error: "No choices returned from AI" });
     }
 
