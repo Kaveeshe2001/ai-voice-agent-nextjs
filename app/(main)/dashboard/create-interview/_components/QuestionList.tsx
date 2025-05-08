@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { Loader2Icon } from 'lucide-react';
+import { Loader2, Loader2Icon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useSession } from 'next-auth/react';
 
@@ -17,12 +17,14 @@ type FormDataType = {
 
 type QuestionListProps = {
   formData: FormDataType;
+  onCreateLink?: () => void;
 };
 
-const QuestionList: React.FC<QuestionListProps> = ({ formData }) => {
+const QuestionList: React.FC<QuestionListProps> = ({ formData, onCreateLink }) => {
   const [loading, setLoading] = useState(true);
   const [questions, setQuestions] = useState<string[]>([]);
   const { data: session } = useSession();
+  const [saveLoading, setSaveLoading] = useState(false);
 
   useEffect(() => {
     if (
@@ -88,6 +90,7 @@ const QuestionList: React.FC<QuestionListProps> = ({ formData }) => {
   };
 
   const onFinish = async () => {
+    setSaveLoading(true);
     if (!formData.jobPosition || !formData.jobDescription || !formData.duration || !formData.type) {
       toast.error("Missing job form data.");
       return;
@@ -130,6 +133,9 @@ const QuestionList: React.FC<QuestionListProps> = ({ formData }) => {
     } finally {
       setLoading(false);
     }
+    setSaveLoading(false);
+
+    onCreateLink?.();
   };
 
   return (
@@ -158,7 +164,10 @@ const QuestionList: React.FC<QuestionListProps> = ({ formData }) => {
         </div>
       )}
       <div className='mt-10 flex justify-end'>
-        <Button className='cursor-pointer' onClick={() => onFinish()}>Finish</Button>
+        <Button className='cursor-pointer' onClick={() => onFinish()} disabled={saveLoading}>
+          {saveLoading && <Loader2 className='animate-spin'/>}
+          Create Interview Link & Finish
+        </Button>
       </div>
     </div>
   );
