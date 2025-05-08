@@ -30,7 +30,7 @@ const InterviewLink = ({ interviewId, formData }: InterviewLinkProps) => {
       month: 'long',
       day: 'numeric',
     });
-  };  
+  }; 
 
   const url = process.env.NEXT_PUBLIC_HOST_URL+'/'+interviewId;
 
