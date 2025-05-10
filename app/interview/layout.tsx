@@ -1,17 +1,23 @@
-import React, { ReactNode } from 'react'
+"use client";
+
+import React, { ReactNode, useState } from 'react';
 import InterviewHeader from './_components/InterviewHeader';
+import { InterviewDataContext } from '@/context/InterviewDataContext';
 
 interface InterviewLayoutProps {
-    children: ReactNode;
+  children: ReactNode;
 }
 
 const InterviewLayout = ({ children }: InterviewLayoutProps) => {
+  const [interviewInfo, setInterviewInfo] = useState<any>(null); // added type
   return (
-    <div className='bg-secondary'>
-      <InterviewHeader />
-      { children }
-    </div>
-  )
-}
+    <InterviewDataContext.Provider value={{ interviewInfo, setInterviewInfo }}>
+      <div className="bg-secondary">
+        <InterviewHeader />
+        {children}
+      </div>
+    </InterviewDataContext.Provider>
+  );
+};
 
-export default InterviewLayout
+export default InterviewLayout;
