@@ -34,25 +34,23 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function GET(req: Request) {
-  await connectDB();
-  const { searchParams } = new URL(req.url);
-  const jobPosition = searchParams.get('jobPosition');
-
+export async function GET(req: NextRequest, { params }: { params: { interview_id: string } }) {
   try {
-    const existingInterview = await Interview.findOne({ jobPosition });
+    console.log("Received interview_id:", params.interview_id);
+    await connectDB();
 
-    if (!existingInterview) {
-      return Response.json({ success: false, message: 'Interview not found' }, { status: 404 });
+    const interview = await Interview.findById(params.interview_id);
+
+    console.log("MongoDB interview found:", interview);
+
+    if (!interview) {
+      return NextResponse.json({ success: false, message: "Interview not found" }, { status: 404 });
     }
 
-    return Response.json({
-      success: true,
-      _id: existingInterview._id.toString(), 
-    });
+    return NextResponse.json({ success: true, interview }, { status: 200 });
 
   } catch (error) {
     console.error(error);
-    return Response.json({ success: false, message: 'Server Error' }, { status: 500 });
+    return NextResponse.json({ success: false, message: "Server Error" }, { status: 500 });
   }
 }
