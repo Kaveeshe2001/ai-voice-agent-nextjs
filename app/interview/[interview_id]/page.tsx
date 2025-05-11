@@ -24,6 +24,7 @@ const Interview = () => {
   const [interview, setInterview] = useState<InterviewProps | null>(null);
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState<string>("");
+  const [userEmail, setUserEmail] = useState<string>("");
   const { setInterviewInfo } = useContext(InterviewDataContext);
 
   useEffect(() => {
@@ -69,6 +70,7 @@ const Interview = () => {
       setInterview(data.interview);
       setInterviewInfo({
         userName: userName,
+        userEmail: userEmail,
         interviewData: data.interview
       });  
 
@@ -129,6 +131,16 @@ const Interview = () => {
               className="w-full"
               value={userName}
               onChange={(event) => setUserName(event.target.value)}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1 w-full mt-3">
+            <h2>Enter your full name</h2>
+            <Input
+              placeholder="e.g. kstest@gmail.com"
+              className="w-full"
+              value={userEmail}
+              onChange={(event) => setUserEmail(event.target.value)}
             />
           </div>
 

@@ -8,12 +8,39 @@ import Vapi from "@vapi-ai/web";
 import AlertConfirmation from "./_components/AlertConfirmation";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import axios from "axios";
 
 const StartInterview = () => {
   const { interviewInfo } = useContext(InterviewDataContext);
   const vapi = new Vapi(process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY!);
   const [activeUser, setActiveUser] = useState(false);
+  const [conversation, setConversation] = useState();
+  const [callActive, setCallActive] = useState(false);
+  const [seconds, setSeconds] = useState(0);          
   const router = useRouter();
+
+  // Timer Effect
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+
+    if (callActive) {
+      timer = setInterval(() => {
+        setSeconds((prev) => prev + 1);
+      }, 1000);
+    } else {
+      setSeconds(0); // Reset timer when call ends
+    }
+
+    return () => clearInterval(timer);
+  }, [callActive]);
+
+  // Convert seconds to HH.MM.SS format
+  const formatTime = (totalSeconds: number) => {
+    const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, "0");
+    const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, "0");
+    const secs = String(totalSeconds % 60).padStart(2, "0");
+    return `${hours}.${minutes}.${secs}`;
+  };
 
   useEffect(() => {
     if (interviewInfo) {
@@ -22,16 +49,9 @@ const StartInterview = () => {
   }, [interviewInfo]);
 
   const startCall = () => {
-    console.log("Raw List:", interviewInfo?.interviewData?.questionsList);
-
     const questionList = (interviewInfo?.interviewData?.questionsList ?? [])
-    .map((item: { question: string }, index: number) => {
-      console.log(`Item ${index}:`, item);
-      return item?.question;
-    })
-    .join(', ');
-
-    console.log("Final question list:", questionList);
+      .map((item: { question: string }) => item?.question)
+      .join(', ');
 
     vapi.start({
       name: "AI Recruiter",
@@ -84,28 +104,49 @@ const StartInterview = () => {
   };
 
   const stopInterview = () => {
-    vapi.stop();
-    router.back();
-  }
+    vapi.stop(); 
+  };
 
+  // Vapi Event listeners
   vapi.on("call-start", () => {
     console.log("Call has started.");
     toast('Call Connected...');
+    setCallActive(true); 
   });
 
   vapi.on("speech-start", () => {
-    console.log("Assistant speech has started.");
     setActiveUser(false);
   });
   vapi.on("speech-end", () => {
-    console.log("Assistant speech has ended.");
     setActiveUser(true);
   });
 
   vapi.on("call-end", () => {
     console.log("Call has ended.");
     toast('Interview Ended...');
+    setCallActive(false); 
+    GenerateFeedback();
   });
+
+  vapi.on("message", (message) => {
+    console.log(message?.conversation);
+    setConversation(message?.conversation);
+  });
+
+  const GenerateFeedback = async () => {
+    const result = await axios.post('/api/ai-feedback', {
+      conversation: conversation,
+    });
+
+    const Content = result.data?.content;
+    if (!Content) {
+      toast.error("AI did not return valid content. Try again.");
+      return;
+    }
+
+    const FINAL_CONTENT = Content.replace(/```json\n?/, '').replace(/```/, '').trim();
+    console.log("Final cleaned JSON string:", FINAL_CONTENT);
+  };
 
   return (
     <div className="p-20 lg:px-48 xl:px-56">
@@ -113,7 +154,7 @@ const StartInterview = () => {
         AI Interview Session
         <span className="flex items-center gap-2">
           <Timer />
-          00.00.00
+          {formatTime(seconds)}
         </span>
       </h2>
 
@@ -144,11 +185,13 @@ const StartInterview = () => {
 
       <div className="flex items-center justify-center gap-5 mt-7">
         <Mic className="h-12 w-12 p-3 bg-gray-500 text-white rounded-full cursor-pointer" />
-        <AlertConfirmation stopInterview = {() => stopInterview}>
+        <AlertConfirmation stopInterview={stopInterview}>
           <Phone className="h-12 w-12 p-3 bg-red-500 text-white rounded-full cursor-pointer" />
         </AlertConfirmation>
       </div>
-      <h2 className="mt-5 text-sm text-gray-400 text-center">Interview in progress...</h2>
+      <h2 className="mt-5 text-sm text-gray-400 text-center">
+        {callActive ? "Interview in progress..." : "Interview ended."}
+      </h2>
     </div>
   );
 };
