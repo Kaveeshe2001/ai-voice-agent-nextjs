@@ -3,21 +3,72 @@
 import { InterviewDataContext } from "@/context/InterviewDataContext";
 import { Mic, Phone, Timer } from "lucide-react";
 import Image from "next/image";
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useEffect, useRef, useState } from "react";
 import Vapi from "@vapi-ai/web";
 import AlertConfirmation from "./_components/AlertConfirmation";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import axios from "axios";
+
+interface InterviewFeedbackProps {
+  userName: string;
+  userEmail: string;
+  interview_id: string;
+  feedback: string[];
+  recommended: boolean;
+}
 
 const StartInterview = () => {
   const { interviewInfo } = useContext(InterviewDataContext);
-  const vapi = new Vapi(process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY!);
+  const vapiRef = useRef<Vapi | null>(null);
   const [activeUser, setActiveUser] = useState(false);
-  const [conversation, setConversation] = useState();
+  const [conversation, setConversation] = useState<any>(null);
   const [callActive, setCallActive] = useState(false);
-  const [seconds, setSeconds] = useState(0);          
+  const [seconds, setSeconds] = useState(0);
+  const [interviewFeedback, setInterviewFeedback] = useState<InterviewFeedbackProps | null>(null);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const { interview_id } = useParams();
+
+  // Initialize Vapi instance
+  useEffect(() => {
+    if (!vapiRef.current) {
+      vapiRef.current = new Vapi(process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY!);
+    }
+
+    const vapi = vapiRef.current;
+
+    // Vapi Event listeners
+    vapi.on("call-start", () => {
+      console.log("Call has started.");
+      toast.success("Call Connected...");
+      setCallActive(true);
+    });
+
+    vapi.on("speech-start", () => {
+      setActiveUser(false);
+    });
+
+    vapi.on("speech-end", () => {
+      setActiveUser(true);
+    });
+
+    vapi.on("call-end", () => {
+      console.log("Call has ended.");
+      toast.info("Interview Ended...");
+      setCallActive(false);
+      GenerateFeedback();
+    });
+
+    vapi.on("message", (message) => {
+      console.log("Received message:", message);
+      setConversation(message?.conversation);
+    });
+
+    return () => {
+      vapi.removeAllListeners();
+    };
+  }, []);
 
   // Timer Effect
   useEffect(() => {
@@ -43,12 +94,15 @@ const StartInterview = () => {
   };
 
   useEffect(() => {
-    if (interviewInfo) {
+    if (interviewInfo && vapiRef.current) {
       startCall();
     }
   }, [interviewInfo]);
 
   const startCall = () => {
+    const vapi = vapiRef.current;
+    if (!vapi || !interviewInfo) return;
+
     const questionList = (interviewInfo?.interviewData?.questionsList ?? [])
       .map((item: { question: string }) => item?.question)
       .join(', ');
@@ -104,48 +158,80 @@ const StartInterview = () => {
   };
 
   const stopInterview = () => {
-    vapi.stop(); 
+    const vapi = vapiRef.current;
+    if (!vapi) return;
+
+    // Gracefully end the call
+    vapi.say("Thank you for your time. Ending the interview now.", true);
   };
 
-  // Vapi Event listeners
-  vapi.on("call-start", () => {
-    console.log("Call has started.");
-    toast('Call Connected...');
-    setCallActive(true); 
-  });
-
-  vapi.on("speech-start", () => {
-    setActiveUser(false);
-  });
-  vapi.on("speech-end", () => {
-    setActiveUser(true);
-  });
-
-  vapi.on("call-end", () => {
-    console.log("Call has ended.");
-    toast('Interview Ended...');
-    setCallActive(false); 
-    GenerateFeedback();
-  });
-
-  vapi.on("message", (message) => {
-    console.log(message?.conversation);
-    setConversation(message?.conversation);
-  });
-
   const GenerateFeedback = async () => {
-    const result = await axios.post('/api/ai-feedback', {
-      conversation: conversation,
-    });
-
-    const Content = result.data?.content;
-    if (!Content) {
-      toast.error("AI did not return valid content. Try again.");
+    if (!conversation) {
+      toast.error("No conversation data available to generate feedback.");
       return;
     }
 
-    const FINAL_CONTENT = Content.replace(/```json\n?/, '').replace(/```/, '').trim();
-    console.log("Final cleaned JSON string:", FINAL_CONTENT);
+    try {
+      const result = await axios.post('/api/ai-feedback', {
+        conversation: conversation,
+      });
+
+      const Content = result.data?.content;
+      if (!Content) {
+        toast.error("AI did not return valid content. Try again.");
+        return;
+      }
+
+      const FINAL_CONTENT = Content.replace(/```json\n?/, '').replace(/```/, '').trim();
+      console.log("Final cleaned JSON string:", FINAL_CONTENT);
+
+      const parsedFeedback = JSON.parse(FINAL_CONTENT);
+
+      const feedbackData: InterviewFeedbackProps = {
+        interview_id: interview_id as string,
+        userName: interviewInfo?.userName || '',
+        userEmail: interviewInfo?.userEmail || '',
+        feedback: parsedFeedback.feedback,
+        recommended: parsedFeedback.recommended,
+      };
+
+      setInterviewFeedback(feedbackData);
+      console.log("Final feedback stored:", feedbackData);
+
+    } catch (error) {
+      console.error("Error generating feedback:", error);
+      toast.error("Failed to generate or parse interview feedback.");
+    }
+  };
+
+  useEffect(() => {
+    GetInterviewFeedbacks();
+  }, []);
+
+  const GetInterviewFeedbacks = async () => {
+    try {
+      const res = await fetch("/api/interview-feedback", {
+        cache: "no-store",
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to fetch data");
+      }
+
+      const data = await res.json();
+      console.log("Fetched feedback data:", data);
+
+      setInterviewFeedback(data.interviewFeedback);
+
+      if (!data.interviewFeedback) {
+        toast.info('No interview feedback found.');
+      }
+    } catch (error) {
+      console.error("Error fetching interview feedback:", error);
+      toast.error('Failed to load interview feedback.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
